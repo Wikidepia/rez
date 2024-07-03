@@ -6,7 +6,7 @@ package rez
 
 import (
 	"math"
-	"sort"
+	"slices"
 )
 
 type kernel struct {
@@ -84,33 +84,24 @@ type weight struct {
 	offset int
 }
 
-type weights []weight
-
-func (w weights) Len() int {
-	return len(w)
-}
-
-func (w weights) Less(i, j int) bool {
-	return math.Abs(w[j].weight) < math.Abs(w[i].weight)
-}
-
-func (w weights) Swap(i, j int) {
-	w[i], w[j] = w[j], w[i]
-}
-
 func makeIntegerKernel(taps, size int, cof, sums []float64, pos []int16, field, idx uint) ([]int16, []int16) {
 	coeffs := make([]int16, taps*size)
 	offsets := make([]int16, size)
-	weights := make(weights, taps)
+	weightsN := make([]weight, taps)
 	for i, sum := range sums[:size] {
 		for j, w := range cof[:taps] {
-			weights[j].weight = w
-			weights[j].offset = j
+			weightsN[j].weight = w
+			weightsN[j].offset = j
 		}
-		sort.Sort(weights)
+		slices.SortFunc(weightsN, func(a, b weight) int {
+			if math.Abs(a.weight) < math.Abs(b.weight) {
+				return -1
+			}
+			return 1
+		})
 		diff := float64(0)
 		scale := 1 << Bits / sum
-		for _, it := range weights {
+		for _, it := range weightsN {
 			w := it.weight*scale + diff
 			iw := math.Floor(w + 0.5)
 			coeffs[i*taps+it.offset] = int16(iw)
